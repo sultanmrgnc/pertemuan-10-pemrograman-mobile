@@ -15,9 +15,13 @@ class BeritaDetailScreen extends StatefulWidget {
   _BeritaDetailScreenState createState() => _BeritaDetailScreenState();
 }
 
-class _BeritaDetailScreenState extends State<BeritaDetailScreen> {
+class _BeritaDetailScreenState extends State<BeritaDetailScreen>
+    with SingleTickerProviderStateMixin {
   late ScrollController _scrollController;
   bool _isScrolled = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
@@ -31,6 +35,30 @@ class _BeritaDetailScreenState extends State<BeritaDetailScreen> {
 
     _scrollController = ScrollController();
     _scrollController.addListener(_listenToScrollChange);
+
+    // Inisialisasi animasi controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeIn,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+
+    _animationController.forward();
   }
 
   void _listenToScrollChange() {
@@ -49,6 +77,7 @@ class _BeritaDetailScreenState extends State<BeritaDetailScreen> {
   void dispose() {
     _scrollController.removeListener(_listenToScrollChange);
     _scrollController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -248,147 +277,144 @@ class _BeritaDetailScreenState extends State<BeritaDetailScreen> {
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
-                  background: ShaderMask(
-                    shaderCallback: (rect) {
-                      return const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black87],
-                      ).createShader(
-                          Rect.fromLTRB(0, 150, rect.width, rect.height));
-                    },
-                    blendMode: BlendMode.darken,
-                    child: berita.gambar != null && berita.gambar!.isNotEmpty
-                        ? Image.network(
+                  background: berita.gambar != null && berita.gambar!.isNotEmpty
+                      ? ShaderMask(
+                          shaderCallback: (rect) {
+                            return const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Colors.black87],
+                            ).createShader(
+                                Rect.fromLTRB(0, 150, rect.width, rect.height));
+                          },
+                          blendMode: BlendMode.darken,
+                          child: Image.network(
                             '${apiService.uploadBaseUrl}/${berita.gambar}',
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
-                              print('Error loading image: $error');
                               return Container(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      Colors.blue.shade200,
-                                      Colors.blue.shade600,
+                                      Colors.blue.shade300,
+                                      Colors.blue.shade700,
                                     ],
                                   ),
                                 ),
                                 child: const Center(
                                   child: Icon(
-                                    Icons.image_not_supported,
+                                    Icons.article,
                                     size: 50,
                                     color: Colors.white70,
                                   ),
                                 ),
                               );
                             },
-                          )
-                        : Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.blue.shade300,
-                                  Colors.blue.shade700,
-                                ],
-                              ),
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.article,
-                                size: 50,
-                                color: Colors.white70,
-                              ),
+                          ),
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.blue.shade300,
+                                Colors.blue.shade700,
+                              ],
                             ),
                           ),
-                  ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.article,
+                              size: 50,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
                 ),
               ),
               SliverList(
                 delegate: SliverChildListDelegate([
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Judul
-                        Text(
-                          berita.judul,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2D3748),
-                            height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Metadata (tanggal)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 16,
-                                color: Colors.grey[700],
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Judul
+                            Text(
+                              berita.judul,
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2D3748),
+                                height: 1.3,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                formattedDate.isNotEmpty
-                                    ? formattedDate
-                                    : 'Tanggal tidak tersedia',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                  fontWeight: FontWeight.w500,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Metadata (tanggal)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_outlined,
+                                    size: 16,
+                                    color: Colors.grey[700],
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    formattedDate.isNotEmpty
+                                        ? formattedDate
+                                        : 'Tanggal tidak tersedia',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[700],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Isi berita
+                            Html(
+                              data: berita.isi,
+                              style: {
+                                'body': Style(
+                                  fontSize: FontSize(16),
+                                  lineHeight: LineHeight(1.6),
+                                  color: const Color(0xFF4A5568),
                                 ),
-                              ),
-                            ],
-                          ),
+                                'p': Style(
+                                  margin: Margins.only(bottom: 16),
+                                ),
+                                'h1, h2, h3, h4, h5, h6': Style(
+                                  color: const Color(0xFF2D3748),
+                                  fontWeight: FontWeight.bold,
+                                  margin: Margins.only(bottom: 16, top: 24),
+                                ),
+                                'img': Style(
+                                  margin: Margins.only(bottom: 16),
+                                ),
+                              },
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 24),
-
-                        // Divider
-                        Divider(color: Colors.grey[300], height: 1),
-                        const SizedBox(height: 24),
-
-                        // Konten berita
-                        Html(
-                          data: berita.isi,
-                          style: {
-                            "body": Style(
-                              fontSize: FontSize(16),
-                              lineHeight: LineHeight(1.8),
-                              color: const Color(0xFF4A5568),
-                              fontFamily: "Roboto",
-                            ),
-                            "h1, h2, h3, h4, h5, h6": Style(
-                              color: const Color(0xFF2D3748),
-                              fontWeight: FontWeight.bold,
-                              margin: Margins.only(top: 16, bottom: 8),
-                            ),
-                            "p": Style(
-                              margin: Margins.only(bottom: 16),
-                            ),
-                            "a": Style(
-                              color: Colors.blue,
-                              textDecoration: TextDecoration.none,
-                            ),
-                          },
-                        ),
-
-                        const SizedBox(height: 40),
-                      ],
+                      ),
                     ),
                   ),
                 ]),

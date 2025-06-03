@@ -20,7 +20,8 @@ class TambahEditBeritaScreen extends StatefulWidget {
   _TambahEditBeritaScreenState createState() => _TambahEditBeritaScreenState();
 }
 
-class _TambahEditBeritaScreenState extends State<TambahEditBeritaScreen> {
+class _TambahEditBeritaScreenState extends State<TambahEditBeritaScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _judulController = TextEditingController();
   final _isiController = TextEditingController();
@@ -29,6 +30,9 @@ class _TambahEditBeritaScreenState extends State<TambahEditBeritaScreen> {
   bool _isValidating = false;
   String? _existingImage;
   final ImagePicker _picker = ImagePicker();
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
@@ -40,12 +44,37 @@ class _TambahEditBeritaScreenState extends State<TambahEditBeritaScreen> {
         _existingImage = widget.berita!.gambar;
       }
     }
+
+    // Inisialisasi animasi controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeIn,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+
+    _animationController.forward();
   }
 
   @override
   void dispose() {
     _judulController.dispose();
     _isiController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -226,215 +255,233 @@ class _TambahEditBeritaScreenState extends State<TambahEditBeritaScreen> {
               onTap: () => FocusScope.of(context).unfocus(),
               child: Container(
                 color: Colors.grey[50],
-                child: Form(
-                  key: _formKey,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      // Card untuk gambar
-                      Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Gambar Berita',
-                                style: TextStyle(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Card untuk gambar
+                            Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Gambar Berita',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    // Preview gambar
+                                    Container(
+                                      height: 200,
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: Colors.grey[300]!),
+                                      ),
+                                      child: _imageFile != null
+                                          ? ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: Image.file(
+                                                _imageFile!,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            )
+                                          : _existingImage != null
+                                              ? ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  child: Image.network(
+                                                    '${apiService.uploadBaseUrl}/$_existingImage',
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context,
+                                                        error, stackTrace) {
+                                                      print(
+                                                          'Error loading image: $error');
+                                                      return const Center(
+                                                        child: Icon(
+                                                          Icons
+                                                              .image_not_supported,
+                                                          size: 50,
+                                                          color: Colors.grey,
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                )
+                                              : const Center(
+                                                  child: Icon(
+                                                    Icons.image,
+                                                    size: 50,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                    ),
+
+                                    const SizedBox(height: 16),
+
+                                    // Tombol-tombol gambar
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: _pickImage,
+                                            icon:
+                                                const Icon(Icons.photo_library),
+                                            label: const Text('Pilih Gambar'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12),
+                                              backgroundColor: Colors.blue,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        if (_imageFile != null ||
+                                            _existingImage != null)
+                                          ElevatedButton.icon(
+                                            onPressed: _removeImage,
+                                            icon: const Icon(Icons.delete),
+                                            label: const Text('Hapus'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12),
+                                              backgroundColor: Colors.red,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Card untuk form
+                            Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Input judul
+                                    TextFormField(
+                                      controller: _judulController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Judul Berita',
+                                        hintText: 'Masukkan judul berita',
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        prefixIcon: const Icon(Icons.title),
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                      ),
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Judul tidak boleh kosong';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+
+                                    const SizedBox(height: 20),
+
+                                    // Input isi
+                                    TextFormField(
+                                      controller: _isiController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Isi Berita',
+                                        hintText:
+                                            'Masukkan isi berita (HTML diperbolehkan)',
+                                        alignLabelWithHint: true,
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        prefixIcon: const Icon(Icons.article),
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                      ),
+                                      maxLines: 10,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Isi berita tidak boleh kosong';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // Tombol simpan
+                            ElevatedButton(
+                              onPressed: _simpanBerita,
+                              style: ElevatedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                widget.isEditing
+                                    ? 'PERBARUI BERITA'
+                                    : 'SIMPAN BERITA',
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 12),
+                            ),
 
-                              // Preview gambar
-                              Container(
-                                height: 200,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey[300]!),
-                                ),
-                                child: _imageFile != null
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          _imageFile!,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      )
-                                    : _existingImage != null
-                                        ? ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                            child: Image.network(
-                                              '${apiService.uploadBaseUrl}/$_existingImage',
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                print(
-                                                    'Error loading image: $error');
-                                                return const Center(
-                                                  child: Icon(
-                                                    Icons.image_not_supported,
-                                                    size: 50,
-                                                    color: Colors.grey,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          )
-                                        : const Center(
-                                            child: Icon(
-                                              Icons.image,
-                                              size: 50,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              // Tombol-tombol gambar
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: _pickImage,
-                                      icon: const Icon(Icons.photo_library),
-                                      label: const Text('Pilih Gambar'),
-                                      style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 12),
-                                        backgroundColor: Colors.blue,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  if (_imageFile != null ||
-                                      _existingImage != null)
-                                    ElevatedButton.icon(
-                                      onPressed: _removeImage,
-                                      icon: const Icon(Icons.delete),
-                                      label: const Text('Hapus'),
-                                      style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 12),
-                                        backgroundColor: Colors.red,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
+                            const SizedBox(height: 20),
+                          ],
                         ),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      // Card untuk form
-                      Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Input judul
-                              TextFormField(
-                                controller: _judulController,
-                                decoration: InputDecoration(
-                                  labelText: 'Judul Berita',
-                                  hintText: 'Masukkan judul berita',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  prefixIcon: const Icon(Icons.title),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Judul tidak boleh kosong';
-                                  }
-                                  return null;
-                                },
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // Input isi
-                              TextFormField(
-                                controller: _isiController,
-                                decoration: InputDecoration(
-                                  labelText: 'Isi Berita',
-                                  hintText:
-                                      'Masukkan isi berita (HTML diperbolehkan)',
-                                  alignLabelWithHint: true,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  prefixIcon: const Icon(Icons.article),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                ),
-                                maxLines: 10,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Isi berita tidak boleh kosong';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Tombol simpan
-                      ElevatedButton(
-                        onPressed: _simpanBerita,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: Text(
-                          widget.isEditing
-                              ? 'PERBARUI BERITA'
-                              : 'SIMPAN BERITA',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-                    ],
+                    ),
                   ),
                 ),
               ),

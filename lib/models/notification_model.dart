@@ -27,7 +27,8 @@ class Notification {
       title: json['title'] ?? '',
       message: json['message'] ?? '',
       type: json['type'] ?? 'info',
-      isRead: json['is_read'] == 1 || json['is_read'] == true,
+      isRead: json['is_read'].toString() == '1' ||
+          json['is_read'].toString().toLowerCase() == 'true',
       targetId: json['target_id'] != null
           ? (json['target_id'] is String
               ? int.parse(json['target_id'])

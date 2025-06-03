@@ -13,9 +13,13 @@ class BeritaListScreen extends StatefulWidget {
   _BeritaListScreenState createState() => _BeritaListScreenState();
 }
 
-class _BeritaListScreenState extends State<BeritaListScreen> {
+class _BeritaListScreenState extends State<BeritaListScreen>
+    with SingleTickerProviderStateMixin {
   late ScrollController _scrollController;
   bool _isScrolled = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
@@ -26,6 +30,30 @@ class _BeritaListScreenState extends State<BeritaListScreen> {
 
     _scrollController = ScrollController();
     _scrollController.addListener(_listenToScrollChange);
+
+    // Inisialisasi animasi controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeIn,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+
+    _animationController.forward();
   }
 
   void _listenToScrollChange() {
@@ -44,6 +72,7 @@ class _BeritaListScreenState extends State<BeritaListScreen> {
   void dispose() {
     _scrollController.removeListener(_listenToScrollChange);
     _scrollController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -351,36 +380,59 @@ class _BeritaListScreenState extends State<BeritaListScreen> {
                   itemCount: provider.beritaList.length,
                   itemBuilder: (context, index) {
                     final berita = provider.beritaList[index];
-                    return Dismissible(
-                      key: Key('berita-${berita.id}'),
-                      background: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 24),
-                        child: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                      direction: DismissDirection.endToStart,
-                      confirmDismiss: (_) async {
-                        await _konfirmasiHapus(context, berita.id);
-                        return false; // Selalu kembalikan false agar item tidak dihapus dari ListView
-                      },
-                      child: BeritaCard(
-                        berita: berita,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  BeritaDetailScreen(id: berita.id),
+                    return FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: Dismissible(
+                          key: Key('berita-${berita.id}'),
+                          background: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 24),
+                            child: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.white,
+                              size: 32,
                             ),
-                          );
-                        },
-                        onEdit: () => _navigateToEditBerita(context, berita),
+                          ),
+                          direction: DismissDirection.endToStart,
+                          confirmDismiss: (_) async {
+                            await _konfirmasiHapus(context, berita.id);
+                            return false;
+                          },
+                          child: BeritaCard(
+                            berita: berita,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                PageRouteBuilder(
+                                  pageBuilder: (context, animation,
+                                          secondaryAnimation) =>
+                                      BeritaDetailScreen(id: berita.id),
+                                  transitionsBuilder: (context, animation,
+                                      secondaryAnimation, child) {
+                                    const begin = Offset(1.0, 0.0);
+                                    const end = Offset.zero;
+                                    const curve = Curves.easeInOut;
+                                    var tween = Tween(begin: begin, end: end)
+                                        .chain(CurveTween(curve: curve));
+                                    var offsetAnimation =
+                                        animation.drive(tween);
+                                    return SlideTransition(
+                                        position: offsetAnimation,
+                                        child: child);
+                                  },
+                                  transitionDuration:
+                                      const Duration(milliseconds: 300),
+                                ),
+                              );
+                            },
+                            onEdit: () =>
+                                _navigateToEditBerita(context, berita),
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -390,38 +442,44 @@ class _BeritaListScreenState extends State<BeritaListScreen> {
           ),
         ),
       ),
-      floatingActionButton: Container(
-        margin: const EdgeInsets.only(bottom: 16, right: 10),
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              spreadRadius: 3,
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+      floatingActionButton: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16, right: 10),
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  spreadRadius: 3,
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+              borderRadius: BorderRadius.circular(30),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.blue, Colors.blueAccent],
+              ),
             ),
-          ],
-          borderRadius: BorderRadius.circular(30),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.blue, Colors.blueAccent],
-          ),
-        ),
-        child: FloatingActionButton.extended(
-          onPressed: () => _navigateToTambahBerita(context),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          icon: const Icon(
-            Icons.add_circle_outline,
-            color: Colors.white,
-          ),
-          label: const Text(
-            'Berita Baru',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Colors.white,
+            child: FloatingActionButton.extended(
+              onPressed: () => _navigateToTambahBerita(context),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              icon: const Icon(
+                Icons.add_circle_outline,
+                color: Colors.white,
+              ),
+              label: const Text(
+                'Berita Baru',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ),

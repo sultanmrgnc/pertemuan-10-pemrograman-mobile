@@ -11,10 +11,13 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final NotificationService _notificationService = NotificationService();
   late Future<List<app_notification.Notification>> _notificationsFuture;
   late TabController _tabController;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
   int _unreadCount = 0;
   bool _isLoading = false;
 
@@ -23,11 +26,36 @@ class _NotificationScreenState extends State<NotificationScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _refreshNotifications();
+
+    // Inisialisasi animasi controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeIn,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+
+    _animationController.forward();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -339,130 +367,139 @@ class _NotificationScreenState extends State<NotificationScreen>
                         : Colors.purple;
                 }
 
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: Card(
-                    elevation: notification.isRead ? 1 : 3,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: cardGradient,
+                return FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      child: Card(
+                        elevation: notification.isRead ? 1 : 3,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () async {
-                          if (!notification.isRead) {
-                            await _notificationService
-                                .markAsRead(notification.id);
-                            _refreshNotifications();
-                          }
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: cardGradient,
+                            ),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () async {
+                              if (!notification.isRead) {
+                                await _notificationService
+                                    .markAsRead(notification.id);
+                                _refreshNotifications();
+                              }
 
-                          // Navigasi ke berita jika ada target_id
-                          if (notification.targetId != null &&
-                              (notification.type == 'berita_baru' ||
-                                  notification.type == 'update')) {
-                            Navigator.pushNamed(
-                              context,
-                              '/berita/detail',
-                              arguments: notification.targetId,
-                            );
-                          }
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Icon
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: iconColor.withOpacity(
-                                      notification.isRead ? 0.2 : 0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  _getIconData(notification.type),
-                                  color: iconColor,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Content
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            notification.title,
-                                            style: TextStyle(
-                                              fontWeight: notification.isRead
-                                                  ? FontWeight.normal
-                                                  : FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                        ),
-                                        if (!notification.isRead)
-                                          Container(
-                                            width: 10,
-                                            height: 10,
-                                            margin:
-                                                const EdgeInsets.only(left: 8),
-                                            decoration: const BoxDecoration(
-                                              color: Colors.red,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                      ],
+                              // Navigasi ke berita jika ada target_id
+                              if (notification.targetId != null &&
+                                  (notification.type == 'berita_baru' ||
+                                      notification.type == 'update')) {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/berita/detail',
+                                  arguments: notification.targetId,
+                                );
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Icon
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: iconColor.withOpacity(
+                                          notification.isRead ? 0.2 : 0.2),
+                                      shape: BoxShape.circle,
                                     ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      notification.message,
-                                      style: const TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 14,
-                                      ),
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Icon(
+                                      _getIconData(notification.type),
+                                      color: iconColor,
+                                      size: 24,
                                     ),
-                                    const SizedBox(height: 8),
-                                    Row(
+                                  ),
+                                  const SizedBox(width: 16),
+                                  // Content
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Icon(
-                                          Icons.access_time,
-                                          size: 14,
-                                          color: Colors.grey[600],
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                notification.title,
+                                                style: TextStyle(
+                                                  fontWeight:
+                                                      notification.isRead
+                                                          ? FontWeight.normal
+                                                          : FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ),
+                                            if (!notification.isRead)
+                                              Container(
+                                                width: 10,
+                                                height: 10,
+                                                margin: const EdgeInsets.only(
+                                                    left: 8),
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.red,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                          ],
                                         ),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text(
-                                            _formatDate(notification.createdAt),
-                                            style: TextStyle(
-                                              fontSize: 12,
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          notification.message,
+                                          style: const TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 14,
+                                          ),
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.access_time,
+                                              size: 14,
                                               color: Colors.grey[600],
                                             ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                _formatDate(
+                                                    notification.createdAt),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
